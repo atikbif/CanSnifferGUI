@@ -53,6 +53,11 @@ QString ArchiveAnalyzer::getHexByte(quint8 value)
     return QString("0x%1").arg(value, 2, 16, QChar('0'));
 }
 
+QString ArchiveAnalyzer::getTwoHexByte(quint16 value)
+{
+    return QString("0x%1").arg(value, 4, 16, QChar('0'));
+}
+
 ArchiveAnalyzer::ArchiveAnalyzer(const QString &fName, QObject *parent):QObject(parent), inpFileName(fName)
 {
     stopFlag = false;
@@ -95,7 +100,10 @@ void ArchiveAnalyzer::startAnalyze()
                 stream << "  SS:" << getHexByte(req.getSS()) << "  EOID:" << getHexByte(req.getEOID()) <<
                           "  ADDR:" << getHexByte(req.getAddress()) << "  Data: ";
                 for(auto value:req.getPC21Data()) stream << getHexByte(value) << " ";
-                stream << endl;
+                auto dataCnt = req.getPC21Data().count();
+                if(dataCnt<6) for(int i=0;i<6-dataCnt;i++) stream<<"     ";
+                stream << " " << req.getComment();
+                stream << "\r\n";
 
                 int percent = (double)cnt*100/reqs.count();
                 if(percent!=lastPercent) {

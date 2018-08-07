@@ -16,9 +16,10 @@ class ArchiveAnalyzer:public QObject
     QString inpFileName;
     QByteArray rawData;
     CanRequest getNextRequest(const QByteArray &archive, QByteArray::const_iterator &it);
-    QVector<CanRequest> reqs;
-    static QString getHexByte(quint8 value);
+    QVector<CanRequest> reqs; 
 public:
+    static QString getHexByte(quint8 value);
+    static QString getTwoHexByte(quint16 value);
     explicit ArchiveAnalyzer(const QString &fName, QObject *parent = nullptr);
 signals:
     analyzeError(const QString &message);

@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QMutex>
 #include <QString>
+#include <QDateTime>
 
 class UDPReader : public QObject
 {
@@ -12,7 +13,10 @@ class UDPReader : public QObject
     QString ipAddress;
     Q_OBJECT
     QByteArray createReadPageRequest(int pageNum);
+    QByteArray createReadConfRequest();
+    QByteArray createWriteTimeRequest(const QDateTime &dt);
     bool checkAnswer(char *data, int pageNum, int length);
+    bool checkCRCAnswer(char *data, int length);
 
     static const int PAGE_CNT = 8192;
     static const int PAGE_SIZE = 528;
@@ -21,6 +25,8 @@ class UDPReader : public QObject
     static const QString rawFile;
 public:
     explicit UDPReader(QString ipAddress, QObject *parent = nullptr);
+    QByteArray readConf();
+    void writeTime(const QDateTime &dt);
 
 signals:
     void readComplete(const QString &fName);

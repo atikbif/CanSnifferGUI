@@ -7,7 +7,7 @@
 UDPController::UDPController(QString ipAddress, QWidget *parent) : QDialog(parent),ipAddress(ipAddress)
 {
     setWindowTitle("Чтение архива контроллера");
-    setFixedSize(300,50);
+    //setFixedSize(300,50);
     QVBoxLayout *layout = new QVBoxLayout();
     bar = new QProgressBar();
     bar->setMaximum(100);
@@ -24,12 +24,12 @@ UDPController::UDPController(QString ipAddress, QWidget *parent) : QDialog(paren
     analyzer = nullptr;
 
     connect(&readerThread, &QThread::finished, reader, &QObject::deleteLater);
-    connect(this, &UDPController::read, reader, &UDPReader::startRead);
+    connect(this, &UDPController::readArchive, reader, &UDPReader::startRead);
     connect(reader, &UDPReader::readComplete, this, &UDPController::readComplete);
     connect(reader, &UDPReader::readError, this, &UDPController::readError);
     connect(reader, &UDPReader::percentUpdate, this, &UDPController::percentUpdate);
     readerThread.start();
-    emit read();
+    //emit readArchive();
 }
 
 UDPController::~UDPController()
@@ -77,3 +77,4 @@ void UDPController::percentUpdate(int value)
 {
     bar->setValue(value);
 }
+

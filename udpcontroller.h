@@ -27,7 +27,7 @@ public slots:
     void readError(const QString &message);
     void percentUpdate(int value);
 signals:
-    void read();
+    void readArchive();
     void analyze();
 };
 

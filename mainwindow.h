@@ -18,6 +18,10 @@ private slots:
     void deletePingProcess();
     void on_pushButtonRead_clicked();
 
+    void on_pushButtonReadConf_clicked();
+
+    void on_pushButtonSyncTime_clicked();
+
 private:
     Ui::MainWindow *ui;
 };

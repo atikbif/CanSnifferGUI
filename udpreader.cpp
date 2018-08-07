@@ -20,11 +20,51 @@ QByteArray UDPReader::createReadPageRequest(int pageNum)
     return res;
 }
 
+QByteArray UDPReader::createReadConfRequest()
+{
+    QByteArray res;
+    res.append('\0');
+    res.append(0x01);
+    res.append((char)0xD1);
+    int crc = CheckSum::getCRC16(res);
+    res.append(crc & 0xFF);
+    res.append(crc >> 8);
+    return res;
+}
+
+QByteArray UDPReader::createWriteTimeRequest(const QDateTime &dt)
+{
+    QByteArray res;
+    res.append('\0');
+    res.append(0x01);
+    res.append((char)0xE1);
+    res.append(dt.time().second());
+    res.append(dt.time().minute());
+    res.append(dt.time().hour());
+    res.append(dt.date().day());
+    res.append(dt.date().month());
+    int year = dt.date().year();
+    if(year<2000) year = 0;else year-=2000;
+    res.append(year);
+    int crc = CheckSum::getCRC16(res);
+    res.append(crc & 0xFF);
+    res.append(crc >> 8);
+    return res;
+}
+
 bool UDPReader::checkAnswer(char *data, int pageNum, int length)
 {
     if(CheckSum::getCRC16(data,length)==0) {
         int id = ((int)((quint8)data[0]) << 8) | (quint8)data[1];
         if(id==pageNum) return true;
+    }
+    return false;
+}
+
+bool UDPReader::checkCRCAnswer(char *data, int length)
+{
+    if(CheckSum::getCRC16(data,length)==0) {
+        return true;
     }
     return false;
 }
@@ -39,6 +79,52 @@ UDPReader::UDPReader(QString ipAddress, QObject *parent) : QObject(parent)
             "." + QString::number(exp.cap(3).toInt()) +
             "." + QString::number(exp.cap(4).toInt());
     }else this->ipAddress="";
+}
+
+QByteArray UDPReader::readConf()
+{
+    QByteArray resData;
+    QUdpSocket udp;
+    unsigned char try_num = 0;
+    char receiveBuf[1024];
+    udp.connectToHost(QHostAddress(ipAddress),7);
+    udp.open(QIODevice::ReadWrite);
+    udp.readAll();
+    while(try_num<TRY_LIM) {
+        udp.readAll();
+        auto request = createReadConfRequest();
+        udp.write(request);
+        if(udp.waitForReadyRead(100)) {
+            int cnt = 0;
+            while(udp.hasPendingDatagrams()) {
+                cnt = udp.readDatagram(receiveBuf,sizeof(receiveBuf));
+            }
+            if(cnt>0) {
+                if(checkCRCAnswer(receiveBuf,cnt)) {
+                    for(int i=0;i<4;i++) resData.append(receiveBuf[3+i]); // time
+                    for(int i=0;i<12;i++) resData.append(receiveBuf[7+i]); // id
+                    resData.append(receiveBuf[19]); // version
+                    resData.append(receiveBuf[20]);
+                    return resData;
+                }
+                else try_num++;
+            }
+        }else try_num++;
+    }
+    if(try_num==TRY_LIM) {
+        emit readError("Устройство не отвечает");
+    }
+    return resData;
+}
+
+void UDPReader::writeTime(const QDateTime &dt)
+{
+    QUdpSocket udp;
+    udp.connectToHost(QHostAddress(ipAddress),7);
+    udp.open(QIODevice::ReadWrite);
+    auto request = createWriteTimeRequest(dt);
+    udp.write(request);
+    QThread::sleep(1);
 }
 
 void UDPReader::startRead()
