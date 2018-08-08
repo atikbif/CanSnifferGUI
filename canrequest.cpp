@@ -1,6 +1,7 @@
 #include "canrequest.h"
 #include <QDebug>
 #include "archiveanalyzer.h"
+#include <QDateTime>
 
 const std::array<QString,8> CanRequest::service = {
     "Channel",
@@ -37,7 +38,7 @@ QString CanRequest::getIOType(int num)
     return res;
 }
 
-CanRequest::CanRequest(quint16 id, const QByteArray data):id(id),data(data)
+CanRequest::CanRequest(quint16 id, quint32 reqTime, const QByteArray data):id(id),reqTime(reqTime),data(data)
 {
 
 }
@@ -91,8 +92,12 @@ QString CanRequest::getComment() const
     QString result;
     QTextStream stream(&result);
     int ss = getSS();
-    try {stream <<  ssDefinition.at(ss);}
+    try {
+        stream.setFieldWidth(40);stream.setFieldAlignment(QTextStream::AlignLeft);
+        stream <<  ssDefinition.at(ss);
+    }
     catch(std::out_of_range) {qDebug() << "out of range exception (SS) num:" << ss;}
+    stream.setFieldWidth(0);
     stream << "  ";
     int eeoid = getEOID();
     int addr = getAddress();
@@ -177,11 +182,11 @@ QString CanRequest::getComment() const
                 if(pcData.count()) stream << " Message Num:" << ArchiveAnalyzer::getHexByte(pcData.at(0));
                 if(pcData.count()>=2) {
                     stream << " Name:";
-                    stream << pcData.at(1);
-                    if(pcData.count()>=3) stream << pcData.at(2);
-                    if(pcData.count()>=4) stream << pcData.at(3);
-                    if(pcData.count()>=5) stream << pcData.at(4);
-                    if(pcData.count()>=6) stream << pcData.at(5);
+                    stream << (pcData.at(1)!='\0'?pcData.at(1):' ');
+                    if(pcData.count()>=3) stream << (pcData.at(2)!='\0'?pcData.at(2):' ');
+                    if(pcData.count()>=4) stream <<(pcData.at(3)!='\0'?pcData.at(3):' ');
+                    if(pcData.count()>=5) stream << (pcData.at(4)!='\0'?pcData.at(4):' ');
+                    if(pcData.count()>=6) stream << (pcData.at(5)!='\0'?pcData.at(5):' ');
                 }
             }else { //unsuccessful response
                 if(pcData.count()) stream << " Message Num:" << ArchiveAnalyzer::getHexByte(pcData.at(0));
@@ -292,19 +297,19 @@ QString CanRequest::getComment() const
                     break;
                 case 1:
                     stream << ", Boot Loader version:";
-                    if(pcData.count()) stream << pcData.at(0);
-                    if(pcData.count()>=2) stream << pcData.at(1);
-                    if(pcData.count()>=3) stream << pcData.at(2);
-                    if(pcData.count()>=4) stream << pcData.at(3);
-                    if(pcData.count()>=5) stream << pcData.at(4);
+                    if(pcData.count()) stream << (pcData.at(0)!='\0'?pcData.at(0):' ');
+                    if(pcData.count()>=2) stream << (pcData.at(1)!='\0'?pcData.at(1):' ');
+                    if(pcData.count()>=3) stream << (pcData.at(2)!='\0'?pcData.at(2):' ');
+                    if(pcData.count()>=4) stream << (pcData.at(3)!='\0'?pcData.at(3):' ');
+                    if(pcData.count()>=5) stream << (pcData.at(4)!='\0'?pcData.at(4):' ');
                     break;
                 case 2:
                     stream << ", OS version:";
-                    if(pcData.count()) stream << pcData.at(0);
-                    if(pcData.count()>=2) stream << pcData.at(1);
-                    if(pcData.count()>=3) stream << pcData.at(2);
-                    if(pcData.count()>=4) stream << pcData.at(3);
-                    if(pcData.count()>=5) stream << pcData.at(4);
+                    if(pcData.count()) stream << (pcData.at(0)!='\0'?pcData.at(0):' ');
+                    if(pcData.count()>=2) stream << (pcData.at(1)!='\0'?pcData.at(1):' ');
+                    if(pcData.count()>=3) stream << (pcData.at(2)!='\0'?pcData.at(2):' ');
+                    if(pcData.count()>=4) stream << (pcData.at(3)!='\0'?pcData.at(3):' ');
+                    if(pcData.count()>=5) stream << (pcData.at(4)!='\0'?pcData.at(4):' ');
                     break;
                 case 3:
                     stream << ", Application CN:";
@@ -357,10 +362,16 @@ QString CanRequest::getComment() const
                     break;
                 case 14:
                     stream << ", Time and Date";
-                    if(pcData.count()) stream << " Low:" << ArchiveAnalyzer::getHexByte(pcData.at(0));
-                    if(pcData.count()>=2)stream << " Next:" << ArchiveAnalyzer::getHexByte(pcData.at(1));
-                    if(pcData.count()>=3)stream << " Next:" << ArchiveAnalyzer::getHexByte(pcData.at(2));
-                    if(pcData.count()>=4)stream << " Next:" << ArchiveAnalyzer::getHexByte(pcData.at(3));
+                    if(pcData.count()>=4) {
+                        quint32 secs = 0;
+                        secs = (quint8)pcData.at(3);
+                        secs <<=8;secs|=(quint8)pcData.at(2);
+                        secs <<=8;secs|=(quint8)pcData.at(1);
+                        secs <<=8;secs|=(quint8)pcData.at(0);
+                        QDateTime dt(QDate(2000,1,1),QTime(0,0,0));
+                        dt = dt.addSecs(secs);
+                        stream << dt.toString(" dd.MM.yyyy HH:mm:ss");
+                    }
                     break;
                 case 15:
                     stream << ", Communication Status:";
@@ -395,6 +406,13 @@ QString CanRequest::getComment() const
     }
 
     return result;
+}
+
+QString CanRequest::getTime() const
+{
+    QDateTime dt(QDate(2000,1,1),QTime(0,0,0));
+    dt = dt.addSecs(reqTime);
+    return dt.toString("dd.MM.yyyy HH:mm:ss  ");
 }
 
 

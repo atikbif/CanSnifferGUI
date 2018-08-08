@@ -5,6 +5,7 @@
 #include "checksum.h"
 #include <QTextStream>
 #include <sstream>
+#include <QDateTime>
 
 CanRequest ArchiveAnalyzer::getNextRequest(const QByteArray &archive, QByteArray::const_iterator &it)
 {
@@ -16,11 +17,11 @@ CanRequest ArchiveAnalyzer::getNextRequest(const QByteArray &archive, QByteArray
     while(startPos!=endIt) {
         requestBody.clear();
         bool res = true;
-        for(int i=0;i<3;i++) {
+        for(int i=0;i<7;i++) {
             it++;if(it!=endIt) requestBody.append(*it);else {res = false;break;}
         }
         if(res) {
-            length = (quint8)requestBody.at(2);
+            length = (quint8)requestBody.at(6);
             if(length<=8) {
                 for(int i=0;i<length;i++) {
                     it++;if(it!=endIt) requestBody.append(*it);else {res = false;break;}
@@ -35,7 +36,11 @@ CanRequest ArchiveAnalyzer::getNextRequest(const QByteArray &archive, QByteArray
                         if((it!=endIt) && (*it==0x31)) {
                             // correct request
                             int id = ((quint16)((quint8)requestBody.at(0))<<8) | (quint8)requestBody.at(1);
-                            return CanRequest(id,requestBody.mid(3,length));
+                            quint32 reqTime = (quint8)requestBody.at(2);
+                            reqTime <<=8; reqTime |= (quint8)requestBody.at(3);
+                            reqTime <<=8; reqTime |= (quint8)requestBody.at(4);
+                            reqTime <<=8; reqTime |= (quint8)requestBody.at(5);
+                            return CanRequest(id,reqTime,requestBody.mid(7,length));
                         }else res = false;
                     }else {res = false;}
                 }else res = false;
@@ -75,9 +80,12 @@ void ArchiveAnalyzer::startAnalyze()
             reqs.append(req);
             req = getNextRequest(rawData,it);
         }
+        std::reverse(reqs.begin(),reqs.end());
+        std::stable_sort(reqs.begin(),reqs.end(),[](const CanRequest &r1, const CanRequest &r2){return r2.getIntTime()<r1.getIntTime();});
         qDebug() << "request count: " << reqs.count();
         inFile.close();
-        QFile outFile("log_can.txt");
+        QString wrFName = "can_log" + QDateTime::currentDateTime().toString("(dd_MM_yyyy HH-mm)") + ".txt";
+        QFile outFile(wrFName);
         if(outFile.open(QIODevice::WriteOnly)) {
             int lastPercent = 0;
             QTextStream stream(&outFile );
@@ -93,6 +101,7 @@ void ArchiveAnalyzer::startAnalyze()
 
                 if(exit) {if(QFile::exists(outFile.fileName())) outFile.remove();outFile.close();return;}
                 cnt++;
+                stream << req.getTime();
                 stream << "ID:" << getHexByte(req.getID()) << "  DIR:" << getHexByte(req.getDir()) << "  SRV:";
                 stream.setFieldWidth(10); stream.setFieldAlignment(QTextStream::AlignLeft);
                 stream << req.getService();
