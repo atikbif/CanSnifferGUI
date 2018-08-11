@@ -6,7 +6,9 @@
 #include <QMessageBox>
 #include <QProcess>
 #include "udpcontroller.h"
+#include "bootloadercontroller.h"
 #include <QDateTime>
+#include <QFileDialog>
 
 //#include "archiveanalyzer.h"
 
@@ -71,15 +73,34 @@ void MainWindow::on_pushButtonReadConf_clicked()
 
         quint8 versionHigh = resData.at(16);
         quint8 versionLow = resData.at(17);
-        ui->label_version->setText(QString::number(versionHigh)+"."+QString::number(versionLow));
-    }else QMessageBox::information(this, "Can Viewer","Устройство не отвечает");
-
-
+        ui->lineEditVersion->setText(QString::number(versionHigh)+"."+QString::number(versionLow));
+        ui->statusBar->showMessage("Настройки успешно считаны",2000);
+    }else if(resData.count()==0) ui->statusBar->showMessage("Устройство не отвечает",2000);
+    else if(resData.at(0)=='1') ui->statusBar->showMessage("Устройство в режиме загрузчика.\nНеобходимо загрузить программу.",2000);
+    else if(resData.at(0)=='2') ui->statusBar->showMessage("Неизвестный тип устройства.",2000);
 }
 
 void MainWindow::on_pushButtonSyncTime_clicked()
 {
+    ui->statusBar->showMessage("Синхронизация времени с компьютером",2000);
     UDPReader reader(ui->lineEditIP->text());
     reader.writeTime(QDateTime::currentDateTime());
     on_pushButtonReadConf_clicked();
+}
+
+void MainWindow::on_pushButtonDownload_clicked()
+{
+    auto reply = QMessageBox::question(this, "Загрузка ПО", "Загрузка приведёт к стиранию текущей программы.\nПродолжить?",
+                                    QMessageBox::Yes|QMessageBox::No);
+    if (reply == QMessageBox::Yes) {
+        QString fName = QFileDialog::getOpenFileName(this, "Open File",
+                                                        "",
+                                                        "Файл прошивки (*.bin)");
+        if(!fName.isEmpty()) {
+            BootloaderController boot(ui->lineEditIP->text());
+            emit boot.load(fName);
+            boot.exec();
+        }
+    }
+
 }

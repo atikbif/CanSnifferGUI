@@ -22,6 +22,8 @@ private slots:
 
     void on_pushButtonSyncTime_clicked();
 
+    void on_pushButtonDownload_clicked();
+
 private:
     Ui::MainWindow *ui;
 };

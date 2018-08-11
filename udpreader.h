@@ -15,6 +15,7 @@ class UDPReader : public QObject
     QByteArray createReadPageRequest(int pageNum);
     QByteArray createReadConfRequest();
     QByteArray createWriteTimeRequest(const QDateTime &dt);
+    QByteArray createReadTypeRequest();
     bool checkAnswer(char *data, int pageNum, int length);
     bool checkCRCAnswer(char *data, int length);
 

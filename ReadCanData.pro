@@ -39,7 +39,9 @@ SOURCES += \
     udpreader.cpp \
     checksum.cpp \
     archiveanalyzer.cpp \
-    canrequest.cpp
+    canrequest.cpp \
+    bootloadercontroller.cpp \
+    bootloader.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -47,7 +49,9 @@ HEADERS += \
     udpreader.h \
     checksum.h \
     archiveanalyzer.h \
-    canrequest.h
+    canrequest.h \
+    bootloadercontroller.h \
+    bootloader.h
 
 FORMS += \
         mainwindow.ui

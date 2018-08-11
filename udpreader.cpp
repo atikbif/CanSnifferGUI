@@ -4,7 +4,7 @@
 #include "checksum.h"
 #include <QFile>
 
-const QString UDPReader::rawFile =  "raw_can.bin";
+const QString UDPReader::rawFile =  "can_log.raw";
 
 QByteArray UDPReader::createReadPageRequest(int pageNum)
 {
@@ -52,6 +52,20 @@ QByteArray UDPReader::createWriteTimeRequest(const QDateTime &dt)
     return res;
 }
 
+QByteArray UDPReader::createReadTypeRequest()
+{
+    QByteArray res;
+    static quint16 id = 0;
+    res.append(id>>8);
+    res.append(id&0xFF);
+    res.append(0xA0);
+    int crc = CheckSum::getCRC16(res);
+    res.append(crc & 0xFF);
+    res.append(crc >> 8);
+    id++;
+    return res;
+}
+
 bool UDPReader::checkAnswer(char *data, int pageNum, int length)
 {
     if(CheckSum::getCRC16(data,length)==0) {
@@ -90,6 +104,39 @@ QByteArray UDPReader::readConf()
     udp.connectToHost(QHostAddress(ipAddress),7);
     udp.open(QIODevice::ReadWrite);
     udp.readAll();
+
+    try_num=0;
+    while(try_num<TRY_LIM) {
+        udp.readAll();
+        auto request = createReadTypeRequest();
+        udp.write(request);
+        if(udp.waitForReadyRead(100)) {
+            int cnt = 0;
+            while(udp.hasPendingDatagrams()) {
+                cnt = udp.readDatagram(receiveBuf,sizeof(receiveBuf));
+            }
+            if(cnt>0) {
+                if(checkCRCAnswer(receiveBuf,cnt)) {
+                    if(((quint8)receiveBuf[0]==0x00)&&((quint8)receiveBuf[1]==0xDA)&&((quint8)receiveBuf[2]==0x83)&&((quint8)receiveBuf[3]==0x2F)) {
+                        emit readError("Режим загрузчика. Необходимо загрузить программу");
+                        return QByteArray("1");
+                    }
+                    if(((quint8)receiveBuf[0]!=0x01)||((quint8)receiveBuf[1]!=0xAD)||((quint8)receiveBuf[2]!=0x54)||((quint8)receiveBuf[3]!=0x98)) {
+                        emit readError("Неизвестное устройство");
+                        return QByteArray("2");
+                    }
+                    break;
+                }
+                else try_num++;
+            }
+        }else try_num++;
+    }
+    if(try_num==TRY_LIM) {
+        emit readError("Устройство не отвечает");
+        return QByteArray();
+    }
+
+    try_num=0;
     while(try_num<TRY_LIM) {
         udp.readAll();
         auto request = createReadConfRequest();
@@ -140,6 +187,39 @@ void UDPReader::startRead()
     int res=0;
     udp.open(QIODevice::ReadWrite);
     bool exit = false;
+
+    try_num=0;
+    while(try_num<TRY_LIM) {
+        udp.readAll();
+        auto request = createReadTypeRequest();
+        udp.write(request);
+        if(udp.waitForReadyRead(100)) {
+            int cnt = 0;
+            while(udp.hasPendingDatagrams()) {
+                cnt = udp.readDatagram(receiveBuf,sizeof(receiveBuf));
+            }
+            if(cnt>0) {
+                if(checkCRCAnswer(receiveBuf,cnt)) {
+                    if(((quint8)receiveBuf[0]==0x00)&&((quint8)receiveBuf[1]==0xDA)&&((quint8)receiveBuf[2]==0x83)&&((quint8)receiveBuf[3]==0x2F)) {
+                        emit readError("Устройство в режиме загрузчика.\nНеобходимо загрузить программу");
+                        return;
+                    }
+                    if(((quint8)receiveBuf[0]!=0x01)||((quint8)receiveBuf[1]!=0xAD)||((quint8)receiveBuf[2]!=0x54)||((quint8)receiveBuf[3]!=0x98)) {
+                        emit readError("Неизвестное устройство");
+                        return;
+                    }
+                    break;
+                }
+                else try_num++;
+            }
+        }else try_num++;
+    }
+    if(try_num==TRY_LIM) {
+        emit readError("Устройство не отвечает");
+        return;
+    }
+
+    try_num=0;
     for(int i=0;i<PAGE_CNT;i++){
         mutex.lock();
         exit = stopFlag;
@@ -169,7 +249,7 @@ void UDPReader::startRead()
         }
 
         percent+=step;
-        QThread::msleep(1);
+        if((i%4)==0) QThread::msleep(1);
         emit percentUpdate(percent);
     }
 

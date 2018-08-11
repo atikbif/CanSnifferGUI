@@ -22,9 +22,9 @@ public:
     static QString getTwoHexByte(quint16 value);
     explicit ArchiveAnalyzer(const QString &fName, QObject *parent = nullptr);
 signals:
-    analyzeError(const QString &message);
-    percentUpdate(int value);
-    analyzeComplete();
+    void analyzeError(const QString &message);
+    void percentUpdate(int value);
+    void analyzeComplete();
 public slots:
     void startAnalyze();
     void stopAnalyze();
